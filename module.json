@@ -1,7 +1,7 @@
 {
   "name": "tokencommandline",
   "title": "Token Command Line",
-  "description": "",
+  "description": "A module allowing you to modify your tokens as you see fit from a simple yet powerful command line.",
   "version": "1.0.0",
   "library": "false",
   "manifestPlusVersion": "1.0.0",

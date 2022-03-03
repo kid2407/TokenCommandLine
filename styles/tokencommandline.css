@@ -1,0 +1,17 @@
+#token-hud .col.middle {
+    height: calc(100% + 133px);
+}
+
+#token-hud div.col.middle ul {
+    position:         absolute;
+    background-color: white;
+    list-style-type:  none;
+    padding:          5px;
+    width:            100%;
+    border-radius:    5px;
+    text-align:       left;
+}
+
+#token-hud div.col.middle ul:empty {
+    display: none;
+}
