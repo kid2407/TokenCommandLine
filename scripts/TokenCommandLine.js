@@ -13,38 +13,55 @@ export class TokenCommandLine {
     }
 
     /**
-     * @returns {string}
+     * @param {jQuery} html
+     * @returns {jQuery}
      */
-    static getHTML() {
-        return "<input id='tcl-input' type='text' placeholder='cmd…'><ul></ul>"
+    static updateHTML(html) {
+        const bar1 = html.find("div.col.middle .attribute.bar1")
+        bar1.append("<input id='tcl-input' type='text' placeholder='cmd…'><ul id='tcl-suggestions'></ul>")
+
+        return html
     }
 
-    async onChange(value) {
-        let conditions = this.getConditions()
-        if (conditions.hasOwnProperty(value)) {
-            // noinspection JSValidateTypes
-            /** @var {TokenDocument} document */
-            let document = this.token.document
-            await document.toggleActiveEffect(conditions[value])
-        } else {
-            let html = ""
-            if (value.length > 0) {
-                let filtered = Object.keys(conditions).filter(key => key.includes(value))
-                filtered.sort((a, b) => a.indexOf(value) < b.indexOf(value) ? -1 : (a.indexOf(value) > b.indexOf(value) ? 1 : 0))
-
-                let matching = Object.keys(conditions).filter(key => key.includes(value))
-                if (matching.length > 0) {
-                    matching.forEach(condition => {
-                        html += `<li>${condition}</li>`
-                    })
-                }
+    /**
+     * @param {string} value
+     * @returns {Promise<void>}
+     */
+    static async onChange(value) {
+        let conditions = TokenCommandLine.getConditions()
+        let html = ""
+        if (value.length > 0) {
+            let matching = Object.values(conditions).filter(condition => condition.id.toLowerCase().includes(value) || condition.label.toLowerCase().includes(value))
+            matching.sort((a, b) => a.label.indexOf(value) - b.label.indexOf(value))
+            if (matching.length > 0) {
+                matching.forEach(condition => {
+                    html += `<li data-value="${condition.id}">${condition.label.replaceAll(value, `<strong>${value}</strong>`).replaceAll(value.toUpperCase(), `<strong>${value.toUpperCase()}</strong>`)}</li>`
+                })
             }
-            $('#tcl-input').parent().find("ul").html(html)
         }
+        $('#tcl-suggestions').html(html)
+    }
 
-        return
+    async applyEffect(value) {
+        const conditions = TokenCommandLine.getConditions()
+        const suggestions = $("#tcl-suggestions > li")
+        // noinspection JSValidateTypes
+        /** @var {TokenDocument} document */
+        let document = this.token.document
+        if (conditions.hasOwnProperty(value)) {
+            await document.toggleActiveEffect(conditions[value])
+        } else if (suggestions.length === 1) {
+            let value = suggestions.data("value")
+            await document.toggleActiveEffect(conditions[value])
+        } else if (suggestions.length > 1) {
+            ui.notifications.warn("More than one possible effect!")
+        } else {
+            ui.notifications.error("Invalid command!")
+        }
+    }
 
-        var {api, helpers} = game.modules.get('commander')
+    static async registerCommanderData() {
+        let {api, helpers} = game.modules.get('commander')
         api.register({
             name       : "tae",
             description: "Token Active Effect",
@@ -53,12 +70,12 @@ export class TokenCommandLine {
                 name       : 'effect',
                 type       : 'string',
                 suggestions: () => {
-                    let conditions = this.getConditions()
-                    let filtered = Object.keys(conditions).filter(key => key.includes(value))
-                    filtered.sort((a, b) => a.indexOf(value) - b.indexOf(value))
-                    return Object.values(filtered).map((f => {
-                        return {displayName: conditions[f].label}
-                    })) // get this somehow, needs to be an array of objects with {displayName: string}
+                    let conditions = TokenCommandLine.getConditions()
+                    let matching = Object.values(conditions).filter(condition => condition.id.toLowerCase().includes(value) || condition.label.toLowerCase().includes(value))
+                    matching.sort((a, b) => a.label.indexOf(value) - b.label.indexOf(value))
+                    return Object.values(matching).map((f => {
+                        return {displayName: f.label}
+                    }))
                 },
             }],
             handler    : async ({effect}) => {
@@ -66,7 +83,7 @@ export class TokenCommandLine {
                     ui.notifications.error('no token selected')
                     return
                 }
-                let effects = this.getConditions()
+                let effects = TokenCommandLine.getConditions()
                 if (!effects.hasOwnProperty(effect)) {
                     ui.notifications.error('invalid effect name')
                     return
@@ -80,7 +97,7 @@ export class TokenCommandLine {
         })
     }
 
-    getConditions() {
+    static getConditions() {
         let conditions = {}
 
         switch (game.system.id) {
